@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 对话助手 - 工具增强版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 20px;
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            padding: 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+
+        .new-chat-btn:hover {
+            background: #0056b3;
+        }
+
+        .conversations-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .conversation-item {
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .conversation-item:hover {
+            background: #f1f3f5;
+        }
+
+        .conversation-item.active {
+            background: #e6f0ff;
+            color: #007bff;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+            padding: 20px 0 10px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            margin: 0 20px 20px;
+        }
+
+        .chat-header {
+            background: #007bff;
+            color: white;
+            padding: 15px 20px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 15px;
+            border-radius: 18px;
+            line-height: 1.5;
+            position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tool-call-message {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        .tool-result-message {
+            background: #d4edda;
+            border: 1px solid #c3e6c8;
+            color: #155724;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            background: #007bff;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+
+        .ai-message {
+            background: #f1f3f5;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+
+        .ai-error-message {
+            background: #f8d7da;
+            color: #721c24;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+
+        .typing-indicator {
+            background: #f1f3f5;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+            padding: 15px;
+            display: none;
+        }
+
+        .typing-indicator span {
+            height: 10px;
+            width: 10px;
+            float: left;
+            margin: 0 2px;
+            background-color: #9E9EA1;
+            display: block;
+            border-radius: 50%;
+            opacity: 0.4;
+        }
+
+        .typing-indicator span:nth-of-type(1) {
+            animation: typing 1s infinite;
+        }
+
+        .typing-indicator span:nth-of-type(2) {
+            animation: typing 1s infinite 0.2s;
+        }
+
+        .typing-indicator span:nth-of-type(3) {
+            animation: typing 1s infinite 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .input-area {
+            display: flex;
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            outline: none;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .input-area input:focus {
+            border-color: #007bff;
+        }
+
+        .input-area button {
+            margin-left: 10px;
+            padding: 15px 25px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+
+        .input-area button:hover {
+            background: #0056b3;
+        }
+
+        .input-area button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .delete-conversation {
+            color: #dc3545;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 0.8rem;
+        }
+
+        .save-status {
+            text-align: center;
+            color: #28a745;
+            font-size: 0.8rem;
+            margin-top: 5px;
+            height: 1.2rem;
+        }
+
+        .tool-badge {
+            background: #ffc107;
+            color: #856404;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 0.7em;
+            margin-left: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 80px;
+                padding: 10px 5px;
+            }
+
+            .conversation-title {
+                display: none;
+            }
+
+            .new-chat-btn span {
+                display: none;
+            }
+
+            .new-chat-btn::before {
+                content: '+';
+                font-size: 1.2rem;
+            }
+
+            .main-content {
+                margin-left: 10px;
+            }
+
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            .message {
+                max-width: 90%;
+            }
+
+            .input-area {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .input-area input {
+                margin-bottom: 10px;
+            }
+
+            .input-area button {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <button class="new-chat-btn" id="new-chat-btn"><span>新建对话</span></button>
+        <div class="conversations-list" id="conversations-list">
+            <!-- 对话列表将在这里动态生成 -->
+        </div>
+    </div>
+
+    <div class="main-content">
+        <header>
+            <h1>🤖 AI 对话助手</h1>
+            <p>流式输出 • 工具集成 • 永久保存</p>
+        </header>
+
+        <div class="chat-container">
+            <div class="chat-header">
+                <span id="current-chat-title">新对话</span>
+                <span class="delete-conversation" id="delete-current-chat">删除</span>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="message ai-message">
+                    你好！我是AI助手，支持流式输出和工具调用。我可以使用加法工具来帮助你计算数学问题。
+                </div>
+            </div>
+            <div class="typing-indicator" id="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <div class="input-area">
+                <input type="text" id="user-input" placeholder="输入您的问题... (例如: 计算 5 + 3)" autocomplete="off">
+                <button id="send-button">发送</button>
+            </div>
+            <div class="save-status" id="save-status"></div>
+        </div>
+    </div>
+
+    <script>
+        // AI 对话功能实现 - 支持流式输出和工具调用
+        class AIChatService {
+            constructor(apiKey, model = 'deepseek-chat') {
+                this.apiKey = apiKey;
+                this.model = model;
+                this.baseUrl = 'https://api.deepseek.com';
+            }
+
+            async sendMessageStream(message, history = [], onChunk, onToolCall = null) {
+                try {
+                    // 检查是否需要调用工具
+                    const toolCallInfo = this.checkForToolCall(message);
+                    
+                    if (toolCallInfo && onToolCall) {
+                        // 执行工具调用
+                        const toolResult = await this.executeTool(toolCallInfo);
+                        
+                        // 将工具调用和结果添加到历史记录
+                        const updatedHistory = [
+                            ...history,
+                            { role: 'user', content: message },
+                            { 
+                                role: 'assistant', 
+                                content: `正在调用${toolCallInfo.name}工具`,
+                                tool_calls: [{
+                                    id: `call_${Date.now()}`,
+                                    type: 'function',
+                                    function: {
+                                        name: toolCallInfo.name,
+                                        arguments: JSON.stringify(toolCallInfo.arguments)
+                                    }
+                                }]
+                            },
+                            {
+                                role: 'tool',
+                                content: JSON.stringify({ result: toolResult }),
+                                tool_call_id: `call_${Date.now()}`
+                            }
+                        ];
+                        
+                        // 通知外部工具调用信息
+                        onToolCall(toolCallInfo, toolResult);
+                        
+                        // 使用更新后的历史记录再次调用AI
+                        return await this.sendMessageStream('', updatedHistory, onChunk, null);
+                    }
+                    
+                    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.apiKey}`
+                        },
+                        body: JSON.stringify({
+                            model: this.model,
+                            messages: [
+                                ...history,
+                                { role: 'user', content: message }
+                            ],
+                            stream: true
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error?.message || `请求失败: ${response.status}`);
+                    }
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        
+                        if (done) {
+                            break;
+                        }
+
+                        const chunk = decoder.decode(value, { stream: true });
+                        buffer += chunk;
+                        
+                        // 分割可能的多个数据块
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop(); // 保留不完整的行
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const dataStr = line.slice(6);
+                                
+                                if (dataStr === '[DONE]') {
+                                    break;
+                                }
+
+                                try {
+                                    const data = JSON.parse(dataStr);
+                                    
+                                    if (data.choices && data.choices[0]) {
+                                        const delta = data.choices[0].delta;
+                                        
+                                        if (delta && delta.content) {
+                                            onChunk(delta.content);
+                                        }
+                                    }
+                                } catch (e) {
+                                    // 忽略解析错误
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('AI流式请求错误:', error);
+                    throw error;
+                }
+            }
+
+            checkForToolCall(message) {
+                // 检测加法工具调用
+                const addPattern = /(\d+(?:\.\d+)?)\s*[+]\s*(\d+(?:\.\d+)?)/;
+                const match = message.match(addPattern);
+                
+                if (match) {
+                    return {
+                        name: 'add',
+                        arguments: {
+                            a: parseFloat(match[1]),
+                            b: parseFloat(match[2])
+                        }
+                    };
+                }
+                
+                // 检测"计算"关键词
+                const calcPattern = /计算|加法|求和|sum|加上|相加|等于/i;
+                if (calcPattern.test(message)) {
+                    // 尝试提取数字
+                    const numbers = message.match(/\d+(?:\.\d+)?/g);
+                    if (numbers && numbers.length >= 2) {
+                        return {
+                            name: 'add',
+                            arguments: {
+                                a: parseFloat(numbers[0]),
+                                b: parseFloat(numbers[1])
+                            }
+                        };
+                    }
+                }
+                
+                return null;
+            }
+
+            async executeTool(toolCallInfo) {
+                if (toolCallInfo.name === 'add') {
+                    const { a, b } = toolCallInfo.arguments;
+                    const result = a + b;
+                    return result;
+                }
+                
+                return '未知工具';
+            }
+        }
+
+        // 对话管理类
+        class ConversationManager {
+            constructor() {
+                this.conversations = this.loadConversations();
+                this.currentConversationId = null;
+            }
+
+            createNewConversation(title = '新对话') {
+                const conversationId = `conv_${Date.now()}`;
+                this.conversations[conversationId] = {
+                    title: title,
+                    messages: [],
+                    timestamp: Date.now()
+                };
+                this.currentConversationId = conversationId;
+                this.saveConversations();
+                return conversationId;
+            }
+
+            switchConversation(conversationId) {
+                if (this.conversations[conversationId]) {
+                    this.currentConversationId = conversationId;
+                    return true;
+                }
+                return false;
+            }
+
+            deleteConversation(conversationId) {
+                if (this.conversations[conversationId]) {
+                    delete this.conversations[conversationId];
+                    if (this.currentConversationId === conversationId) {
+                        this.currentConversationId = null;
+                    }
+                    this.saveConversations();
+                    return true;
+                }
+                return false;
+            }
+
+            addMessage(conversationId, role, content, extra = {}) {
+                if (this.conversations[conversationId]) {
+                    const messageObj = {
+                        role,
+                        content,
+                        timestamp: Date.now(),
+                        ...extra
+                    };
+                    
+                    this.conversations[conversationId].messages.push(messageObj);
+                    this.conversations[conversationId].timestamp = Date.now();
+                    
+                    // 如果这是第一个消息，更新对话标题
+                    if (this.conversations[conversationId].messages.length === 1 && role === 'user') {
+                        this.conversations[conversationId].title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
+                    }
+                    
+                    this.saveConversations();
+                }
+            }
+
+            getConversation(conversationId) {
+                return this.conversations[conversationId] || null;
+            }
+
+            getAllConversations() {
+                // 按时间戳排序，最新的在前
+                return Object.entries(this.conversations)
+                    .sort((a, b) => b[1].timestamp - a[1].timestamp)
+                    .map(([id, conv]) => ({ id, ...conv }));
+            }
+
+            getCurrentConversation() {
+                if (this.currentConversationId) {
+                    return this.getConversation(this.currentConversationId);
+                }
+                return null;
+            }
+
+            getCurrentConversationId() {
+                return this.currentConversationId;
+            }
+
+            loadConversations() {
+                const saved = localStorage.getItem('ai_conversations');
+                return saved ? JSON.parse(saved) : {};
+            }
+
+            saveConversations() {
+                localStorage.setItem('ai_conversations', JSON.stringify(this.conversations));
+            }
+        }
+
+        class AIChatApp {
+            constructor() {
+                this.currentConversationId = null;
+                this.conversations = this.loadConversations();
+                this.apiKey = 'sk-cea233d8fefd49c38f9585a9108f132a';
+                this.model = 'deepseek-chat';
+                this.baseUrl = 'https://api.deepseek.com';
+
+                this.initializeElements();
+                this.initializeServices();
+                this.initializeEventListeners();
+                this.renderConversationsList();
+                
+                // 如果没有对话，则创建一个新对话
+                if (Object.keys(this.conversations).length === 0) {
+                    this.createNewConversation();
+                } else {
+                    // 加载最近的对话
+                    const conversationIds = Object.keys(this.conversations);
+                    if (conversationIds.length > 0) {
+                        this.switchToConversation(conversationIds[0]);
+                    }
+                }
+            }
+
+            initializeElements() {
+                this.conversationsList = document.getElementById('conversations-list');
+                this.chatMessages = document.getElementById('chat-messages');
+                this.userInput = document.getElementById('user-input');
+                this.sendButton = document.getElementById('send-button');
+                this.typingIndicator = document.getElementById('typing-indicator');
+                this.newChatBtn = document.getElementById('new-chat-btn');
+                this.currentChatTitle = document.getElementById('current-chat-title');
+                this.deleteCurrentChatBtn = document.getElementById('delete-current-chat');
+                this.saveStatus = document.getElementById('save-status');
+            }
+
+            initializeServices() {
+                this.conversationManager = new ConversationManager();
+                this.aiService = new AIChatService(this.apiKey, this.model);
+            }
+
+            initializeEventListeners() {
+                this.sendButton.addEventListener('click', () => this.handleSendMessage());
+                this.userInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.handleSendMessage();
+                    }
+                });
+                this.newChatBtn.addEventListener('click', () => this.createNewConversation());
+                this.deleteCurrentChatBtn.addEventListener('click', () => this.deleteCurrentConversation());
+            }
+
+            async handleSendMessage() {
+                const message = this.userInput.value.trim();
+                if (!message || !this.conversationManager.getCurrentConversationId()) return;
+
+                // 添加用户消息到聊天记录
+                this.addMessageToChat(message, 'user');
+                this.userInput.value = '';
+                this.showTypingIndicator();
+
+                try {
+                    // 获取当前对话的历史消息
+                    const currentConv = this.conversationManager.getCurrentConversation();
+                    const history = currentConv ? currentConv.messages.filter(msg => 
+                        msg.role !== 'system' && !msg.is_temporary
+                    ) : [];
+
+                    // 检查是否需要工具调用
+                    const toolCallInfo = this.aiService.checkForToolCall(message);
+                    
+                    if (toolCallInfo) {
+                        // 执行工具调用
+                        const toolResult = await this.aiService.executeTool(toolCallInfo);
+                        
+                        // 显示工具调用信息
+                        this.addMessageToChat(`正在调用 ${toolCallInfo.name} 工具: a=${toolCallInfo.arguments.a}, b=${toolCallInfo.arguments.b}`, 'tool-call-message');
+                        
+                        // 显示工具结果
+                        this.addMessageToChat(`工具结果: ${toolResult}`, 'tool-result-message');
+                        
+                        // 添加工具调用和结果到历史
+                        const currentId = this.conversationManager.getCurrentConversationId();
+                        if (currentId) {
+                            this.conversationManager.addMessage(currentId, 'assistant', `调用${toolCallInfo.name}工具`, {
+                                tool_calls: [{
+                                    id: `call_${Date.now()}`,
+                                    type: 'function',
+                                    function: {
+                                        name: toolCallInfo.name,
+                                        arguments: JSON.stringify(toolCallInfo.arguments)
+                                    }
+                                }]
+                            });
+                            
+                            this.conversationManager.addMessage(currentId, 'tool', JSON.stringify({ result: toolResult }), {
+                                tool_call_id: `call_${Date.now()}`
+                            });
+                        }
+                        
+                        // 再次调用AI获取最终回复
+                        let aiResponse = '';
+                        await this.aiService.sendMessageStream('', [...history, 
+                            { role: 'user', content: message },
+                            { 
+                                role: 'assistant', 
+                                content: `调用${toolCallInfo.name}工具`,
+                                tool_calls: [{
+                                    id: `call_${Date.now()}`,
+                                    type: 'function',
+                                    function: {
+                                        name: toolCallInfo.name,
+                                        arguments: JSON.stringify(toolCallInfo.arguments)
+                                    }
+                                }]
+                            },
+                            {
+                                role: 'tool',
+                                content: JSON.stringify({ result: toolResult }),
+                                tool_call_id: `call_${Date.now()}`
+                            }
+                        ], (chunk) => {
+                            aiResponse += chunk;
+                            
+                            // 如果AI消息元素还不存在，创建一个
+                            if (!this.aiMessageElement) {
+                                this.aiMessageElement = document.createElement('div');
+                                this.aiMessageElement.className = 'message ai-message';
+                                this.chatMessages.appendChild(this.aiMessageElement);
+                                this.scrollToBottom();
+                            }
+                            
+                            // 更新AI消息内容
+                            this.aiMessageElement.textContent = aiResponse;
+                            this.scrollToBottom();
+                        });
+                        
+                        // 添加AI最终回复到历史
+                        if (currentId) {
+                            this.conversationManager.addMessage(currentId, 'assistant', aiResponse);
+                        }
+                        
+                        // 清除临时的AI消息元素引用
+                        delete this.aiMessageElement;
+                    } else {
+                        // 没有工具调用，直接获取AI回复
+                        let aiResponse = '';
+                        await this.aiService.sendMessageStream(message, history, (chunk) => {
+                            aiResponse += chunk;
+                            
+                            // 如果AI消息元素还不存在，创建一个
+                            if (!this.aiMessageElement) {
+                                this.aiMessageElement = document.createElement('div');
+                                this.aiMessageElement.className = 'message ai-message';
+                                this.chatMessages.appendChild(this.aiMessageElement);
+                                this.scrollToBottom();
+                            }
+                            
+                            // 更新AI消息内容
+                            this.aiMessageElement.textContent = aiResponse;
+                            this.scrollToBottom();
+                        });
+                        
+                        // 添加AI回复到历史
+                        const currentId = this.conversationManager.getCurrentConversationId();
+                        if (currentId) {
+                            this.conversationManager.addMessage(currentId, 'assistant', aiResponse);
+                        }
+                        
+                        // 清除临时的AI消息元素引用
+                        delete this.aiMessageElement;
+                    }
+                    
+                    this.hideTypingIndicator();
+                    this.conversationManager.saveConversations();
+                    this.showSaveStatus('对话已保存');
+                } catch (error) {
+                    this.hideTypingIndicator();
+                    this.addMessageToChat(`抱歉，出现错误: ${error.message}`, 'ai-error');
+                }
+            }
+
+            addMessageToChat(content, sender) {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message', `${sender}-message`);
+                messageElement.textContent = content;
+                this.chatMessages.appendChild(messageElement);
+                this.scrollToBottom();
+            }
+
+            showTypingIndicator() {
+                this.typingIndicator.style.display = 'block';
+                this.sendButton.disabled = true;
+                this.scrollToBottom();
+            }
+
+            hideTypingIndicator() {
+                this.typingIndicator.style.display = 'none';
+                this.sendButton.disabled = false;
+            }
+
+            scrollToBottom() {
+                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+            }
+
+            createNewConversation() {
+                const newId = this.conversationManager.createNewConversation();
+                this.currentConversationId = newId;
+                this.clearChatDisplay();
+                this.addMessageToChat('你好！我是AI助手，支持流式输出和工具调用。我可以使用加法工具来帮助你计算数学问题。', 'ai');
+                this.renderConversationsList();
+                this.updateCurrentChatTitle();
+            }
+
+            switchToConversation(conversationId) {
+                this.conversationManager.switchConversation(conversationId);
+                this.renderChatMessages();
+                this.updateCurrentChatTitle();
+                this.renderConversationsList();
+            }
+
+            deleteCurrentConversation() {
+                const currentId = this.conversationManager.getCurrentConversationId();
+                if (currentId) {
+                    this.conversationManager.deleteConversation(currentId);
+                    const conversations = this.conversationManager.getAllConversations();
+                    if (conversations.length > 0) {
+                        this.conversationManager.switchConversation(conversations[0].id);
+                        this.renderChatMessages();
+                        this.updateCurrentChatTitle();
+                    } else {
+                        // 如果没有对话了，创建一个新对话
+                        this.createNewConversation();
+                    }
+                    this.renderConversationsList();
+                }
+            }
+
+            renderConversationsList() {
+                this.conversationsList.innerHTML = '';
+                
+                // 按时间戳排序对话（最新的在前）
+                const sortedConversations = this.conversationManager.getAllConversations();
+
+                sortedConversations.forEach(conv => {
+                    const item = document.createElement('div');
+                    item.classList.add('conversation-item');
+                    if (conv.id === this.conversationManager.getCurrentConversationId()) {
+                        item.classList.add('active');
+                    }
+                    
+                    item.innerHTML = `
+                        <div class="conversation-title">${conv.title}</div>
+                        <div style="font-size: 0.8rem; color: #666; margin-top: 3px;">
+                            ${new Date(conv.timestamp).toLocaleDateString()}
+                        </div>
+                    `;
+                    
+                    item.addEventListener('click', () => this.switchToConversation(conv.id));
+                    this.conversationsList.appendChild(item);
+                });
+            }
+
+            renderChatMessages() {
+                this.clearChatDisplay();
+                
+                const currentConv = this.conversationManager.getCurrentConversation();
+                
+                if (!currentConv || currentConv.messages.length === 0) {
+                    this.addMessageToChat('开始新的对话吧！我可以帮你进行数学计算。', 'ai');
+                    return;
+                }
+
+                currentConv.messages.forEach(message => {
+                    if (message.role === 'user') {
+                        this.addMessageToChat(message.content, 'user');
+                    } else if (message.role === 'assistant') {
+                        if (message.tool_calls) {
+                            // 显示工具调用信息
+                            message.tool_calls.forEach(call => {
+                                this.addMessageToChat(`正在调用 ${call.function.name} 工具: ${call.function.arguments}`, 'tool-call-message');
+                            });
+                        } else {
+                            this.addMessageToChat(message.content, 'ai');
+                        }
+                    } else if (message.role === 'tool') {
+                        try {
+                            const toolData = JSON.parse(message.content);
+                            this.addMessageToChat(`工具结果: ${toolData.result}`, 'tool-result-message');
+                        } catch (e) {
+                            this.addMessageToChat(`工具结果: ${message.content}`, 'tool-result-message');
+                        }
+                    }
+                });
+            }
+
+            clearChatDisplay() {
+                this.chatMessages.innerHTML = '';
+            }
+
+            updateCurrentChatTitle() {
+                const currentConv = this.conversationManager.getCurrentConversation();
+                if (currentConv) {
+                    this.currentChatTitle.textContent = currentConv.title;
+                } else {
+                    this.currentChatTitle.textContent = '新对话';
+                }
+            }
+
+            showSaveStatus(message) {
+                this.saveStatus.textContent = message;
+                setTimeout(() => {
+                    this.saveStatus.textContent = '';
+                }, 2000);
+            }
+
+            loadConversations() {
+                const saved = localStorage.getItem('ai_conversations');
+                return saved ? JSON.parse(saved) : {};
+            }
+        }
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            new AIChatApp();
+        });
+    </script>
+</body>
+</html>
